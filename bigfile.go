@@ -51,7 +51,7 @@ func (f *File) Close() error {
 func (f *File) Size() (int64, error) {
 	var stat syscall.Stat_t
 	if err := syscall.Stat(f.dir, &stat); err != nil {
-		if os.IsNotExist(err) {
+		if err == syscall.ENOENT {
 			if err = os.MkdirAll(f.dir, dirPerm); err != nil {
 				return 0, fmt.Errorf("os.MkdirAll: %w", err)
 			}
@@ -229,7 +229,7 @@ func (f *File) move(off int64) error {
 		newPath := filepath.Join(f.dir, padZeros(f.currentIndex))
 		f.fd, err = syscall.Open(newPath, syscall.O_RDWR, filePerm)
 		if err != nil {
-			if os.IsNotExist(err) {
+			if err == syscall.ENOENT {
 				err = os.MkdirAll(f.dir, dirPerm)
 				if err != nil {
 					return fmt.Errorf("os.MkdirAll: %w", err)
