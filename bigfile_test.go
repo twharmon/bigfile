@@ -14,7 +14,7 @@ func check(t *testing.T, err error) {
 }
 
 func TestSingleFileUse(t *testing.T) {
-	dir := "TestSingleFileUse"
+	dir := "./TestSingleFileUse"
 	f := bigfile.Open(dir, 10)
 	defer f.Close()
 	control := []byte("foo")
@@ -38,7 +38,7 @@ func TestSingleFileUse(t *testing.T) {
 }
 
 func TestReadFromNotFirstFile(t *testing.T) {
-	dir := "TestReadFromNotFirstFile"
+	dir := "./TestReadFromNotFirstFile"
 	f := bigfile.Open(dir, 6)
 	defer f.Close()
 	control := []byte("foobarbaz")
@@ -62,7 +62,7 @@ func TestReadFromNotFirstFile(t *testing.T) {
 }
 
 func TestWriteManyFiles(t *testing.T) {
-	dir := "TestWriteManyFiles"
+	dir := "./TestWriteManyFiles"
 	f := bigfile.Open(dir, 3)
 	defer f.Close()
 	control := []byte("foobarbaz")
@@ -86,7 +86,7 @@ func TestWriteManyFiles(t *testing.T) {
 }
 
 func TestReadCrossManyFiles(t *testing.T) {
-	dir := "TestReadCrossManyFiles"
+	dir := "./TestReadCrossManyFiles"
 	f := bigfile.Open(dir, 3)
 	defer f.Close()
 	control := []byte("foobarbaz")
@@ -110,7 +110,7 @@ func TestReadCrossManyFiles(t *testing.T) {
 }
 
 func TestSeekRead(t *testing.T) {
-	dir := "TestSeekRead"
+	dir := "./TestSeekRead"
 	f := bigfile.Open(dir, 3)
 	defer f.Close()
 
@@ -141,7 +141,7 @@ func TestSeekRead(t *testing.T) {
 }
 
 func TestReadFirst(t *testing.T) {
-	dir := "TestReadFirst"
+	dir := "./TestReadFirst"
 	f := bigfile.Open(dir, 3)
 	defer f.Close()
 	control := []byte("foobarbaz")
@@ -170,7 +170,7 @@ func TestReadFirst(t *testing.T) {
 }
 
 func TestSize(t *testing.T) {
-	dir := "TestSize"
+	dir := "./TestSize"
 	f := bigfile.Open(dir, 5)
 	defer f.Close()
 	control := []byte("foobarbaz")
@@ -190,7 +190,7 @@ func TestSize(t *testing.T) {
 }
 
 func TestZeroSize(t *testing.T) {
-	dir := "TestZeroSize"
+	dir := "./TestZeroSize"
 	f := bigfile.Open(dir, 5)
 	defer f.Close()
 	s, err := f.Size()

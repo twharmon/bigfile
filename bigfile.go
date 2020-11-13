@@ -1,7 +1,6 @@
 package bigfile
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -50,22 +49,27 @@ func (f *File) Close() error {
 
 // Size .
 func (f *File) Size() (int64, error) {
-	var stat syscall.Stat_t
-	if err := syscall.Stat(f.dir, &stat); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
+	fi, err := os.Open(f.dir)
+	if err != nil {
+		if os.IsNotExist(err) {
 			if err = os.MkdirAll(f.dir, dirPerm); err != nil {
 				return 0, fmt.Errorf("os.MkdirAll: %w", err)
 			}
 			return f.Size()
 		}
-		return 0, fmt.Errorf("syscall.Stat: %w", err)
+		return 0, fmt.Errorf("os.Open: %w", err)
 	}
-	fileCnt := (stat.Size - 64) / 32
+	names, err := fi.Readdirnames(-1)
+	fi.Close()
+	if err != nil {
+		return 0, fmt.Errorf("os.File.Readdirnames: %w", err)
+	}
+	fileCnt := int64(len(names))
 	if fileCnt == 0 {
 		return 0, nil
 	}
 	filledSize := int64(fileCnt-1) * f.partSize
-
+	var stat syscall.Stat_t
 	if err := syscall.Stat(filepath.Join(f.dir, padZeros(fileCnt-1)), &stat); err != nil {
 		return 0, fmt.Errorf("syscall.Stat: %w", err)
 	}
@@ -230,7 +234,7 @@ func (f *File) move(off int64) error {
 		newPath := filepath.Join(f.dir, padZeros(f.currentIndex))
 		f.fd, err = syscall.Open(newPath, syscall.O_RDWR, filePerm)
 		if err != nil {
-			if os.IsNotExist(err) {
+			if err == syscall.ENOENT {
 				err = os.MkdirAll(f.dir, dirPerm)
 				if err != nil {
 					return fmt.Errorf("os.MkdirAll: %w", err)
