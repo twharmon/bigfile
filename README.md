@@ -14,14 +14,18 @@ For full documentation see [pkg.go.dev](https://pkg.go.dev/github.com/twharmon/b
 package main
 
 import (
-	"log"
+	"fmt"
 
 	"github.com/twharmon/bigfile"
 )
 
 func main() {
 	f := bigfile.Open("foo.txt", 10) // max file size of 10 bytes
-	f.Write([]byte("foo bar baz"))
+	content := []byte("foo bar baz")
+	f.Write(content) // notice two files were created
+	b := make([]byte, len(content))
+	f.Read(b)
+	fmt.Println(string(b)) // read "foo bar baz" from two files
 }
 ```
 
