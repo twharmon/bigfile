@@ -2,7 +2,7 @@
 
 ![](https://github.com/twharmon/bigfile/workflows/Test/badge.svg) [![](https://goreportcard.com/badge/github.com/twharmon/bigfile)](https://goreportcard.com/report/github.com/twharmon/bigfile) [![](https://gocover.io/_badge/github.com/twharmon/bigfile)](https://gocover.io/github.com/twharmon/bigfile)
 
-Use bigfile to work with large files too large for a single file.
+Use BigFile to treat partitioned files as one.
 
 ## Documentation
 
@@ -20,8 +20,8 @@ import (
 )
 
 func main() {
-	f := bigfile.Open("foo.txt", 10)
-	f.Write()
+	f := bigfile.Open("foo.txt", 10) // max file size of 10 bytes
+	f.Write([]byte("foo bar baz"))
 }
 ```
 
