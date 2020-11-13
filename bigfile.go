@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"syscall"
+	"golang.org/x/sys/unix"
 )
 
 const filePerm = 0600
@@ -29,7 +29,6 @@ func Open(dir string, partSize int64) *File {
 		dir:          dir,
 		currentIndex: -1,
 		fd:           -1,
-		offset:       0,
 	}
 }
 
@@ -39,17 +38,16 @@ func Remove(dir string) error {
 }
 
 // Close .
-func (f *File) Close() error {
+func (f *File) Close() {
 	if f.fd > -1 {
+		unix.Close(f.fd)
 		f.fd = -1
-		return syscall.Close(f.fd)
 	}
-	return nil
 }
 
 // Size .
 func (f *File) Size() (int64, error) {
-	fi, err := os.Open(f.dir)
+	d, err := os.Open(f.dir)
 	if err != nil {
 		if os.IsNotExist(err) {
 			if err = os.MkdirAll(f.dir, dirPerm); err != nil {
@@ -59,114 +57,108 @@ func (f *File) Size() (int64, error) {
 		}
 		return 0, fmt.Errorf("os.Open: %w", err)
 	}
-	names, err := fi.Readdirnames(-1)
-	fi.Close()
+	list, err := d.Readdirnames(-1)
+	d.Close()
 	if err != nil {
-		return 0, fmt.Errorf("os.File.Readdirnames: %w", err)
+		return 0, fmt.Errorf("d.Readdir: %w", err)
 	}
-	fileCnt := int64(len(names))
+
+	fileCnt := int64(len(list))
 	if fileCnt == 0 {
 		return 0, nil
 	}
 	filledSize := int64(fileCnt-1) * f.partSize
-	var stat syscall.Stat_t
-	if err := syscall.Stat(filepath.Join(f.dir, padZeros(fileCnt-1)), &stat); err != nil {
-		return 0, fmt.Errorf("syscall.Stat: %w", err)
+	var stat unix.Stat_t
+	if err := unix.Stat(filepath.Join(f.dir, padZeros(fileCnt-1)), &stat); err != nil {
+		return 0, fmt.Errorf("unix.Stat: %w", err)
 	}
 	return stat.Size + filledSize, nil
 }
 
 // Seek .
-func (f *File) Seek(offset int64, whence int) (int64, error) {
+func (f *File) Seek(offset int64) error {
 	var err error
 	err = f.move(offset)
 	if err != nil {
-		return 0, fmt.Errorf("bigfile.move: %w", err)
+		return fmt.Errorf("bigfile.move: %w", err)
 	}
 	partOff := offset % f.partSize
-	offset, err = syscall.Seek(f.fd, partOff, whence)
-	return offset + f.partSize*f.currentIndex, err
+	offset, err = unix.Seek(f.fd, partOff, 0)
+	return err
 }
 
 // Read .
-func (f *File) Read(b []byte) (int, error) {
+func (f *File) Read(b []byte) error {
 	var err error
 	if f.fd < 0 || f.currentIndex < 0 {
 		err = f.move(0)
 		if err != nil {
-			return 0, fmt.Errorf("bigfile.move: %w", err)
-		}
-		_, err = syscall.Seek(f.fd, f.offset%f.partSize, 0)
-		if err != nil {
-			return 0, fmt.Errorf("syscall.Seek: %w", err)
+			return fmt.Errorf("f.move: %w", err)
 		}
 	}
+
 	var nextFileBytes []byte
 	if int64(len(b))+(f.offset%f.partSize) > f.partSize {
 		nextFileBytes = b[f.partSize-(f.offset%f.partSize):]
 		b = b[:f.partSize-(f.offset%f.partSize)]
 	}
-	var n int
-	n, err = syscall.Read(f.fd, b)
-	if len(nextFileBytes) > 0 {
-		err = f.move(f.offset + int64(n))
-		if err != nil {
-			return 0, fmt.Errorf("bigfile.move: %w", err)
-		}
-		var n2 int
-		n2, err = f.Read(nextFileBytes)
-		if err != nil {
-			return 0, fmt.Errorf("bigfile.Read: %w", err)
-		}
-		n += n2
+	_, err = unix.Read(f.fd, b)
+	if err != nil {
+		return fmt.Errorf("unix.Read: %w", err)
 	}
-	return n, nil
+	if len(nextFileBytes) > 0 {
+		err = f.move(f.offset + int64(len(b)))
+		if err != nil {
+			return fmt.Errorf("bigfile.move: %w", err)
+		}
+		err = f.Read(nextFileBytes)
+		if err != nil {
+			return fmt.Errorf("bigfile.Read: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // Write .
-func (f *File) Write(b []byte) (int, error) {
+func (f *File) Write(b []byte) error {
 	var err error
 	if f.fd < 0 || f.currentIndex < 0 {
 		err = f.move(0)
 		if err != nil {
-			return 0, fmt.Errorf("bigfile.move: %w", err)
-		}
-		_, err = syscall.Seek(f.fd, 0, 0)
-		if err != nil {
-			return 0, fmt.Errorf("syscall.Seek: %w", err)
+			return fmt.Errorf("f.move: %w", err)
 		}
 	}
+
 	var nextFileBytes []byte
 	if int64(len(b))+(f.offset%f.partSize) > f.partSize {
 		nextFileBytes = b[f.partSize-(f.offset%f.partSize):]
 		b = b[:f.partSize-(f.offset%f.partSize)]
 	}
-	var n int
-	n, err = syscall.Write(f.fd, b)
+	_, err = unix.Write(f.fd, b)
 	if err != nil {
-		return 0, err
+		return fmt.Errorf("unix.Write: %w", err)
 	}
 	if len(nextFileBytes) > 0 {
-		err = f.move((f.currentIndex + 1) * f.partSize)
+		err = f.move(f.offset + int64(len(b)))
 		if err != nil {
-			return 0, fmt.Errorf("bigfile.move: %w", err)
+			return fmt.Errorf("bigfile.move: %w", err)
 		}
-		var n2 int
-		n2, err = f.Write(nextFileBytes)
+		err = f.Write(nextFileBytes)
 		if err != nil {
-			return 0, fmt.Errorf("bigfile.Write: %w", err)
+			return fmt.Errorf("bigfile.Write: %w", err)
 		}
-		n += n2
 	}
-	return n, nil
+
+	return nil
 }
 
 // ReadAt .
-func (f *File) ReadAt(b []byte, off int64) (int, error) {
+func (f *File) ReadAt(b []byte, off int64) error {
 	var err error
 	err = f.move(off)
 	if err != nil {
-		return 0, fmt.Errorf("bigfile.move: %w", err)
+		return fmt.Errorf("f.move %d: %w", off, err)
 	}
 	partOff := off % f.partSize
 	var nextFileBytes []byte
@@ -174,28 +166,26 @@ func (f *File) ReadAt(b []byte, off int64) (int, error) {
 		nextFileBytes = b[f.partSize-partOff:]
 		b = b[:f.partSize-partOff]
 	}
-	var n int
-	n, err = syscall.Pread(f.fd, b, partOff)
+
+	_, err = unix.Pread(f.fd, b, partOff)
 	if err != nil {
-		return 0, fmt.Errorf("syscall.Pread: %w", err)
+		return fmt.Errorf("f.file.ReadAt file %d, off %d, part size %d: %w", f.currentIndex, off, f.partSize, err)
 	}
 	if len(nextFileBytes) > 0 {
-		var n2 int
-		n2, err = f.ReadAt(nextFileBytes, off+int64(len(b)))
+		err = f.ReadAt(nextFileBytes, off+int64(len(b)))
 		if err != nil {
-			return 0, fmt.Errorf("bigfile.ReadAt: %w", err)
+			return fmt.Errorf("nextFileRead: %w", err)
 		}
-		n += n2
 	}
-	return n, nil
+	return nil
 }
 
 // WriteAt .
-func (f *File) WriteAt(b []byte, off int64) (int, error) {
+func (f *File) WriteAt(b []byte, off int64) error {
 	var err error
 	err = f.move(off)
 	if err != nil {
-		return 0, fmt.Errorf("bigfile.move: %w", err)
+		return fmt.Errorf("f.move %d: %w", off, err)
 	}
 	partOff := off % f.partSize
 	var nextFileBytes []byte
@@ -203,45 +193,39 @@ func (f *File) WriteAt(b []byte, off int64) (int, error) {
 		nextFileBytes = b[f.partSize-partOff:]
 		b = b[:f.partSize-partOff]
 	}
-	var n int
-	n, err = syscall.Pwrite(f.fd, b, partOff)
+	_, err = unix.Pwrite(f.fd, b, partOff)
 	if err != nil {
-		return 0, fmt.Errorf("syscall.Pwrite: %w", err)
+		return fmt.Errorf("f.file.WriteAt file %d, off %d, part size %d: %w", f.currentIndex, partOff, f.partSize, err)
 	}
 	if len(nextFileBytes) > 0 {
-		var n2 int
-		n2, err = f.WriteAt(nextFileBytes, off+int64(len(b)))
+		err = f.WriteAt(nextFileBytes, off+int64(len(b)))
 		if err != nil {
-			return 0, fmt.Errorf("bigfile.WriteAt: %w", err)
+			return fmt.Errorf("nextFileWrite: %w", err)
 		}
-		n += n2
 	}
-	return n, nil
+	return nil
 }
 
 // WriteAt .
 func (f *File) move(off int64) error {
-	var err error
 	f.offset = off
+	var err error
 	if f.fd < 0 || off/f.partSize != f.currentIndex {
 		if f.fd >= 0 {
-			err = syscall.Close(f.fd)
-			if err != nil {
-				return fmt.Errorf("syscall.Close: %w", err)
-			}
+			unix.Close(f.fd)
 		}
 		f.currentIndex = off / f.partSize
 		newPath := filepath.Join(f.dir, padZeros(f.currentIndex))
-		f.fd, err = syscall.Open(newPath, syscall.O_RDWR, filePerm)
+		f.fd, err = unix.Open(newPath, unix.O_RDWR, filePerm)
 		if err != nil {
-			if err == syscall.ENOENT {
+			if err == unix.ENOENT {
 				err = os.MkdirAll(f.dir, dirPerm)
 				if err != nil {
-					return fmt.Errorf("os.MkdirAll: %w", err)
+					return err
 				}
-				f.fd, err = syscall.Open(newPath, syscall.O_CREAT|syscall.O_RDWR, filePerm)
+				f.fd, err = unix.Open(newPath, unix.O_CREAT|unix.O_RDWR, filePerm)
 				if err != nil {
-					return fmt.Errorf("syscall.Open: %w", err)
+					return err
 				}
 			}
 		}

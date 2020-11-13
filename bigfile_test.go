@@ -19,18 +19,11 @@ func TestSingleFileUse(t *testing.T) {
 	defer f.Close()
 	control := []byte("foo")
 	var err error
-	var n int
-	n, err = f.WriteAt(control, 0)
+	err = f.WriteAt(control, 0)
 	check(t, err)
-	if n != len(control) {
-		t.Fatalf("n %d != %d", n, len(control))
-	}
 	test := make([]byte, len(control))
-	n, err = f.ReadAt(test, 0)
+	err = f.ReadAt(test, 0)
 	check(t, err)
-	if n != len(test) {
-		t.Fatalf("n %d != %d", n, len(test))
-	}
 	if bytes.Compare(control, test) != 0 {
 		t.Fatalf("%b != %b", control, test)
 	}
@@ -43,17 +36,10 @@ func TestReadFromNotFirstFile(t *testing.T) {
 	defer f.Close()
 	control := []byte("foobarbaz")
 	var err error
-	var n int
-	n, err = f.WriteAt(control, 0)
+	err = f.WriteAt(control, 0)
 	check(t, err)
-	if n != len(control) {
-		t.Fatalf("n %d != %d", n, len(control))
-	}
 	test := make([]byte, 3)
-	n, err = f.ReadAt(test, 6)
-	if n != len(test) {
-		t.Fatalf("n %d != %d", n, len(test))
-	}
+	err = f.ReadAt(test, 6)
 	check(t, err)
 	if string(test) != "baz" {
 		t.Fatalf("%s != %s", string(test), "baz")
@@ -67,18 +53,11 @@ func TestWriteManyFiles(t *testing.T) {
 	defer f.Close()
 	control := []byte("foobarbaz")
 	var err error
-	var n int
-	n, err = f.WriteAt(control, 0)
+	err = f.WriteAt(control, 0)
 	check(t, err)
-	if n != len(control) {
-		t.Fatalf("n %d != %d", n, len(control))
-	}
 	test := make([]byte, 3)
-	n, err = f.ReadAt(test, 6)
+	err = f.ReadAt(test, 6)
 	check(t, err)
-	if n != len(test) {
-		t.Fatalf("n %d != %d", n, len(test))
-	}
 	if string(test) != "baz" {
 		t.Fatalf("%s != %s", string(test), "baz")
 	}
@@ -91,18 +70,11 @@ func TestReadCrossManyFiles(t *testing.T) {
 	defer f.Close()
 	control := []byte("foobarbaz")
 	var err error
-	var n int
-	n, err = f.WriteAt(control, 0)
+	err = f.WriteAt(control, 0)
 	check(t, err)
-	if n != len(control) {
-		t.Fatalf("n %d != %d", n, len(control))
-	}
 	test := make([]byte, len(control))
-	n, err = f.ReadAt(test, 0)
+	err = f.ReadAt(test, 0)
 	check(t, err)
-	if n != len(test) {
-		t.Fatalf("n %d != %d", n, len(test))
-	}
 	if bytes.Compare(control, test) != 0 {
 		t.Fatalf("%b != %b", control, test)
 	}
@@ -115,25 +87,14 @@ func TestSeekRead(t *testing.T) {
 	defer f.Close()
 
 	control := []byte("foobarbaz")
-	var n int
 	var err error
-	n, err = f.Write(control)
+	err = f.Write(control)
 	check(t, err)
-	if n != len(control) {
-		t.Fatalf("n %d != %d", n, len(control))
-	}
-	var off int64
-	off, err = f.Seek(4, 0)
+	err = f.Seek(4)
 	check(t, err)
-	if off != 4 {
-		t.Fatalf("off %d != %d", off, 4)
-	}
 	test := make([]byte, 5)
-	n, err = f.Read(test)
+	err = f.Read(test)
 	check(t, err)
-	if n != len(test) {
-		t.Fatalf("n %d != %d", n, len(test))
-	}
 	if bytes.Compare(control[4:], test) != 0 {
 		t.Fatalf("%b != %b", control[4:], test)
 	}
@@ -145,24 +106,17 @@ func TestReadFirst(t *testing.T) {
 	f := bigfile.Open(dir, 3)
 	defer f.Close()
 	control := []byte("foobarbaz")
-	var n int
 	var err error
-	n, err = f.Write(control)
+	err = f.Write(control)
 	check(t, err)
-	if n != len(control) {
-		t.Fatalf("n %d != %d", n, len(control))
-	}
 	f.Close()
 
 	f2 := bigfile.Open(dir, 3)
 	defer f2.Close()
 
 	test := make([]byte, 7)
-	n, err = f.Read(test)
+	err = f.Read(test)
 	check(t, err)
-	if n != len(test) {
-		t.Fatalf("n %d != %d", n, len(test))
-	}
 	if bytes.Compare(control[:7], test) != 0 {
 		t.Fatalf("%b != %b", control[:7], test)
 	}
@@ -174,13 +128,9 @@ func TestSize(t *testing.T) {
 	f := bigfile.Open(dir, 5)
 	defer f.Close()
 	control := []byte("foobarbaz")
-	var n int
 	var err error
-	n, err = f.WriteAt(control, 0)
+	err = f.WriteAt(control, 0)
 	check(t, err)
-	if n != len(control) {
-		t.Fatalf("n %d != %d", n, len(control))
-	}
 	s, err := f.Size()
 	check(t, err)
 	if s != 9 {
