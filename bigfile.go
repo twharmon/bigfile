@@ -1,7 +1,6 @@
 package bigfile
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -52,7 +51,7 @@ func (f *File) Close() error {
 func (f *File) Size() (int64, error) {
 	var stat syscall.Stat_t
 	if err := syscall.Stat(f.dir, &stat); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
+		if os.IsNotExist(err) {
 			if err = os.MkdirAll(f.dir, dirPerm); err != nil {
 				return 0, fmt.Errorf("os.MkdirAll: %w", err)
 			}
