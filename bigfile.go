@@ -206,7 +206,6 @@ func (f *File) WriteAt(b []byte, off int64) error {
 	return nil
 }
 
-// WriteAt .
 func (f *File) move(off int64) error {
 	f.offset = off
 	var err error
