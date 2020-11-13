@@ -74,14 +74,14 @@ func (f *File) Size() (int64, error) {
 
 // Seek .
 func (f *File) Seek(offset int64, whence int) (int64, error) {
-	f.offset = offset
 	var err error
 	err = f.move(offset)
 	if err != nil {
 		return 0, fmt.Errorf("bigfile.move: %w", err)
 	}
 	partOff := offset % f.partSize
-	return syscall.Seek(f.fd, partOff, whence)
+	offset, err = syscall.Seek(f.fd, partOff, whence)
+	return offset + f.partSize*f.currentIndex, err
 }
 
 // Read .
@@ -105,7 +105,7 @@ func (f *File) Read(b []byte) (int, error) {
 	var n int
 	n, err = syscall.Read(f.fd, b)
 	if len(nextFileBytes) > 0 {
-		err = f.move((f.currentIndex + 1) * f.partSize)
+		err = f.move(f.offset + int64(n))
 		if err != nil {
 			return 0, fmt.Errorf("bigfile.move: %w", err)
 		}
@@ -147,7 +147,6 @@ func (f *File) Write(b []byte) (int, error) {
 		if err != nil {
 			return 0, fmt.Errorf("bigfile.move: %w", err)
 		}
-		fmt.Println(string(nextFileBytes))
 		var n2 int
 		n2, err = f.Write(nextFileBytes)
 		if err != nil {
@@ -219,6 +218,7 @@ func (f *File) WriteAt(b []byte, off int64) (int, error) {
 // WriteAt .
 func (f *File) move(off int64) error {
 	var err error
+	f.offset = off
 	if f.fd < 0 || off/f.partSize != f.currentIndex {
 		if f.fd >= 0 {
 			err = syscall.Close(f.fd)

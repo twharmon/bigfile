@@ -18,11 +18,19 @@ func TestSingleFileUse(t *testing.T) {
 	f := bigfile.Open(dir, 10)
 	defer f.Close()
 	control := []byte("foo")
-	_, err := f.WriteAt(control, 0)
+	var err error
+	var n int
+	n, err = f.WriteAt(control, 0)
 	check(t, err)
+	if n != len(control) {
+		t.Fatalf("n %d != %d", n, len(control))
+	}
 	test := make([]byte, len(control))
-	_, err = f.ReadAt(test, 0)
+	n, err = f.ReadAt(test, 0)
 	check(t, err)
+	if n != len(test) {
+		t.Fatalf("n %d != %d", n, len(test))
+	}
 	if bytes.Compare(control, test) != 0 {
 		t.Fatalf("%b != %b", control, test)
 	}
@@ -34,10 +42,18 @@ func TestReadFromNotFirstFile(t *testing.T) {
 	f := bigfile.Open(dir, 6)
 	defer f.Close()
 	control := []byte("foobarbaz")
-	_, err := f.WriteAt(control, 0)
+	var err error
+	var n int
+	n, err = f.WriteAt(control, 0)
 	check(t, err)
+	if n != len(control) {
+		t.Fatalf("n %d != %d", n, len(control))
+	}
 	test := make([]byte, 3)
-	_, err = f.ReadAt(test, 6)
+	n, err = f.ReadAt(test, 6)
+	if n != len(test) {
+		t.Fatalf("n %d != %d", n, len(test))
+	}
 	check(t, err)
 	if string(test) != "baz" {
 		t.Fatalf("%s != %s", string(test), "baz")
@@ -50,11 +66,19 @@ func TestWriteManyFiles(t *testing.T) {
 	f := bigfile.Open(dir, 3)
 	defer f.Close()
 	control := []byte("foobarbaz")
-	_, err := f.WriteAt(control, 0)
+	var err error
+	var n int
+	n, err = f.WriteAt(control, 0)
 	check(t, err)
+	if n != len(control) {
+		t.Fatalf("n %d != %d", n, len(control))
+	}
 	test := make([]byte, 3)
-	_, err = f.ReadAt(test, 6)
+	n, err = f.ReadAt(test, 6)
 	check(t, err)
+	if n != len(test) {
+		t.Fatalf("n %d != %d", n, len(test))
+	}
 	if string(test) != "baz" {
 		t.Fatalf("%s != %s", string(test), "baz")
 	}
@@ -66,11 +90,19 @@ func TestReadCrossManyFiles(t *testing.T) {
 	f := bigfile.Open(dir, 3)
 	defer f.Close()
 	control := []byte("foobarbaz")
-	_, err := f.WriteAt(control, 0)
+	var err error
+	var n int
+	n, err = f.WriteAt(control, 0)
 	check(t, err)
+	if n != len(control) {
+		t.Fatalf("n %d != %d", n, len(control))
+	}
 	test := make([]byte, len(control))
-	_, err = f.ReadAt(test, 0)
+	n, err = f.ReadAt(test, 0)
 	check(t, err)
+	if n != len(test) {
+		t.Fatalf("n %d != %d", n, len(test))
+	}
 	if bytes.Compare(control, test) != 0 {
 		t.Fatalf("%b != %b", control, test)
 	}
@@ -90,16 +122,49 @@ func TestSeekRead(t *testing.T) {
 	if n != len(control) {
 		t.Fatalf("n %d != %d", n, len(control))
 	}
-	_, err = f.Seek(3, 0)
+	var off int64
+	off, err = f.Seek(4, 0)
 	check(t, err)
-	test := make([]byte, 6)
+	if off != 4 {
+		t.Fatalf("off %d != %d", off, 4)
+	}
+	test := make([]byte, 5)
 	n, err = f.Read(test)
 	check(t, err)
 	if n != len(test) {
 		t.Fatalf("n %d != %d", n, len(test))
 	}
-	if bytes.Compare(control[3:], test) != 0 {
-		t.Fatalf("%b != %b", control[3:], test)
+	if bytes.Compare(control[4:], test) != 0 {
+		t.Fatalf("%b != %b", control[4:], test)
+	}
+	check(t, bigfile.Remove(dir))
+}
+
+func TestReadFirst(t *testing.T) {
+	dir := "TestReadFirst"
+	f := bigfile.Open(dir, 3)
+	defer f.Close()
+	control := []byte("foobarbaz")
+	var n int
+	var err error
+	n, err = f.Write(control)
+	check(t, err)
+	if n != len(control) {
+		t.Fatalf("n %d != %d", n, len(control))
+	}
+	f.Close()
+
+	f2 := bigfile.Open(dir, 3)
+	defer f2.Close()
+
+	test := make([]byte, 7)
+	n, err = f.Read(test)
+	check(t, err)
+	if n != len(test) {
+		t.Fatalf("n %d != %d", n, len(test))
+	}
+	if bytes.Compare(control[:7], test) != 0 {
+		t.Fatalf("%b != %b", control[:7], test)
 	}
 	check(t, bigfile.Remove(dir))
 }
@@ -109,8 +174,13 @@ func TestSize(t *testing.T) {
 	f := bigfile.Open(dir, 5)
 	defer f.Close()
 	control := []byte("foobarbaz")
-	_, err := f.WriteAt(control, 0)
+	var n int
+	var err error
+	n, err = f.WriteAt(control, 0)
 	check(t, err)
+	if n != len(control) {
+		t.Fatalf("n %d != %d", n, len(control))
+	}
 	s, err := f.Size()
 	check(t, err)
 	if s != 9 {
