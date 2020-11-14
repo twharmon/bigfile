@@ -106,8 +106,9 @@ func (f *File) Read(b []byte) error {
 	if err != nil {
 		return fmt.Errorf("unix.Read: %w", err)
 	}
+	f.offset += int64(len(b))
 	if len(nextFileBytes) > 0 {
-		err = f.move(f.offset + int64(len(b)))
+		err = f.move(f.offset)
 		if err != nil {
 			return fmt.Errorf("bigfile.move: %w", err)
 		}
@@ -139,8 +140,9 @@ func (f *File) Write(b []byte) error {
 	if err != nil {
 		return fmt.Errorf("unix.Write: %w", err)
 	}
+	f.offset += int64(len(b))
 	if len(nextFileBytes) > 0 {
-		err = f.move(f.offset + int64(len(b)))
+		err = f.move(f.offset)
 		if err != nil {
 			return fmt.Errorf("bigfile.move: %w", err)
 		}

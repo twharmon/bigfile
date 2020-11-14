@@ -115,11 +115,40 @@ func TestReadFirst(t *testing.T) {
 	defer f2.Close()
 
 	test := make([]byte, 7)
-	err = f.Read(test)
+	err = f2.Read(test)
 	check(t, err)
 	if bytes.Compare(control[:7], test) != 0 {
 		t.Fatalf("%b != %b", control[:7], test)
 	}
+	check(t, bigfile.Remove(dir))
+}
+
+func TestReadTwice(t *testing.T) {
+	dir := "./TestReadTwice"
+	f := bigfile.Open(dir, 3)
+	defer f.Close()
+	control := []byte("foobarbaz")
+	var err error
+	err = f.Write(control)
+	check(t, err)
+
+	err = f.Seek(0)
+	check(t, err)
+
+	test := make([]byte, 4)
+	err = f.Read(test)
+	check(t, err)
+	if bytes.Compare(control[:4], test) != 0 {
+		t.Fatalf("first read %b != %b", control[:4], test)
+	}
+
+	test2 := make([]byte, 1)
+	err = f.Read(test2)
+	check(t, err)
+	if bytes.Compare(control[4:5], test2) != 0 {
+		t.Fatalf("second read %b != %b", control[4:5], test2)
+	}
+
 	check(t, bigfile.Remove(dir))
 }
 
